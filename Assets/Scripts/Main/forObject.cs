@@ -12,12 +12,15 @@ public class forObject : MonoBehaviour
     private Transform traCube;
     private Transform traCapsule;
     private Vector3 positionOfCube;
+    private Vector3 positionOfCapsule;
     private void Start()
     {
         rigCube =  Cube.GetComponent<Rigidbody>();
         rigCapsule = Capsule.GetComponent<Rigidbody>();
         traCube = Cube.GetComponent<Transform>();
         traCapsule = Cube.GetComponent<Transform>();
+        positionOfCube = traCube.position;
+        positionOfCapsule = traCapsule.position;
         rigCube.useGravity = false;
         rigCapsule.useGravity = false;
     }
@@ -31,6 +34,8 @@ public class forObject : MonoBehaviour
         }
         else
         {
+            traCube.position = positionOfCube;
+            traCapsule.position = positionOfCapsule;
             rigCube.useGravity = false;
             rigCapsule.useGravity = false;
         }
