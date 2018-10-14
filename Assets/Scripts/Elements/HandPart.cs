@@ -5,6 +5,21 @@ namespace HandPhysicsExtenstions
     [RequireComponent(typeof(Collider))]
     public class HandPart : MonoBehaviour
     {
+        //public GameObject pickUp;
+        //private void OnTriggerEnter(Collider other)
+        //{
+        //    Debug.Log("OnTriggerEnter");
+        //    pickUp = other.gameObject;
+        //    pickUp.transform.parent = this.transform;
+        //    //pickUp.GetComponent<Rigidbody>().isKinematic = true;
+        //}
+
+        //private void OnTriggerExit(Collider other)
+        //{
+        //    Debug.Log("OnTriggerExit");
+        //    pickUp = null;
+        //}
+ 
         #region Component references
         /// <summary>
         /// Returns collider component attached to this hand part

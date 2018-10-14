@@ -64,11 +64,11 @@ ylim_lower = 22000
 ylim_higher = 45000
 xlim_offset_lower = 500
 xlim_offset_higher = 100
-obsX = [0, ]
-obsY1 = [33000, ]
-obsY2 = [33000, ]
-obsY3 = [33000, ]
-obsY4 = [33000, ]
+obsX = []
+obsY1 = []
+obsY2 = []
+obsY3 = []
+obsY4 = []
 
 
 def get_command(reg_data):
@@ -92,7 +92,13 @@ if __name__ == '__main__':
         with open("D:/Projects/UNITY_PROJECT/Mr.dou-and-Mrs.dou/Assets/Doc/serialportData.txt", "w") as f:
             while True:
                 # 从串口通信中获取数据
-                data = master.execute(1, cst.READ_HOLDING_REGISTERS, 0, 8)
+                try:
+                    data = master.execute(1, cst.READ_HOLDING_REGISTERS, 0, 8)
+                except:
+                    m.seek(0)
+                    m.write(('00000000').encode('utf-8'))
+                    m.flush()
+                    continue
                 # 写入共享内存
                 m.seek(0)
                 m.write((get_command(data)).encode('utf-8'))

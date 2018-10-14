@@ -19,11 +19,15 @@ namespace HandPhysicsExtenstions
             Rigidbody colRigidbody = col.GetComponent<Rigidbody>();
             if (!colRigidbody)
                 return;
-
+           
             if (!colRigidbody.isKinematic && !ParentFingerPart.TouchingObjects.Contains(colRigidbody))
             {
                 ParentFingerPart.TouchingObjects.Add(colRigidbody);
                 ParentFingerPart.IsTouchingAnyObject = true;
+                print("************touching************");
+                //col.gameObject.transform.parent = this.transform;//设置父物体
+               // colRigidbody.isKinematic = true;
+
             }
         }
 

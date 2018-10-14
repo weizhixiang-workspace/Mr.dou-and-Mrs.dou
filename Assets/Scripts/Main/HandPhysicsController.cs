@@ -16,7 +16,7 @@ public class HandPhysicsController : MonoBehaviour
     /// <summary>
     /// Called when one of any finger part triggers collides with any other <see cref="Rigidbody"/>
     /// </summary>
-    public ObjectTouched OnObjectTouched = () => {};
+    public ObjectTouched OnObjectTouched = () => { print("***********************collides***************************"); };
     /// <summary>
     /// Called when <see cref="Rigidbody"/> has been attached to hand
     /// </summary>
@@ -228,7 +228,7 @@ public class HandPhysicsController : MonoBehaviour
     {
         if (AttachedObject == null)
             return;
-
+        //print("********************************TryFixForearmAxes*****************************");
         Vector3 forearmPos = Parts.Forearm.transform.position;
         float hardness = Forearm.FixAxis.Hardness;
 
@@ -327,9 +327,10 @@ public class HandPhysicsController : MonoBehaviour
         if (Mathf.Approximately(direction.magnitude, 0))
         {
             _curForearmDirection = Vector3.zero;
+            //print("do not move 0000000000000000000000");
             return;
         }
-
+       // print("move 5555555555555555555555");
         _curForearmDirection = direction;
         IsForearmMoving = true;
     }

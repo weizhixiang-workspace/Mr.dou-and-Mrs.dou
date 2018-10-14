@@ -25,7 +25,13 @@ if __name__ == '__main__':
     with contextlib.closing(mmap.mmap(-1, 1024, tagname='ShareMemory', access=mmap.ACCESS_WRITE)) as m:
         with open("D:/Projects/UNITY_PROJECT/Mr.dou-and-Mrs.dou/Assets/Doc/serialportData.txt", "w") as f:
             while True:
-                data = master.execute(1, cst.READ_HOLDING_REGISTERS, 0, 8)
+                try:
+                    data = master.execute(1, cst.READ_HOLDING_REGISTERS, 0, 8)
+                except:
+                    m.seek(0)
+                    m.write(('00000000').encode('utf-8'))
+                    m.flush()
+                    continue
                 m.seek(0)
                 m.write((get_command(data)).encode('utf-8'))
                 m.flush()
@@ -33,6 +39,7 @@ if __name__ == '__main__':
                 for i in range(len(data)):
                     str_data += str(data[i]) + ' '
                 f.write(str_data + '\n')
+
 
 
 
