@@ -24,7 +24,7 @@ namespace HandPhysicsExtenstions
             {
                 ParentFingerPart.TouchingObjects.Add(colRigidbody);
                 ParentFingerPart.IsTouchingAnyObject = true;
-                print("************touching************");
+                //print("************touching************");
                 //col.gameObject.transform.parent = this.transform;//设置父物体
                // colRigidbody.isKinematic = true;
 
@@ -44,12 +44,14 @@ namespace HandPhysicsExtenstions
                 if (ParentFingerPart.TouchingObjects.Count == 0)
                     ParentFingerPart.IsTouchingAnyObject = false;
             }
+            Configure();
         }
 
 #if UNITY_EDITOR
         [ContextMenu("Configure")]
-        private void Configure()
+        private void Configure()//复位碰撞器的位置，使其一直附在手指上
         {
+            //print("[ContextMenu(Configure)]");
             if (transform.parent == null)
                 return;
 

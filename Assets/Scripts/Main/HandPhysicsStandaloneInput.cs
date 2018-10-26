@@ -12,9 +12,16 @@ namespace HandPhysicsExtenstions
     public class HandPhysicsStandaloneInput : MonoBehaviour
     {
         public HandPhysicsController Controller;
-        public GameObject cube;
+        public GameObject GPS;
         public GameObject hand;
-        public int speed = 10;
+        public GameObject cube1;
+        public GameObject cube2;
+        public GameObject capsule;
+
+        private GameObject pick_player;//要捡起的物体
+        private Transform pick_player_transform;
+
+        public float speed = 2.0f;
 
         public bool LockCursor = true;
         public bool ControlsEnabled = true;
@@ -28,15 +35,16 @@ namespace HandPhysicsExtenstions
         private MemoryMappedViewAccessor viewAccessor;
         private int[] command = new int[8];
 
-        private Vector3 handPosition;
-        private Vector3 endPosition;
-        private Vector3 palmPosition;
-        private Transform transform;
-        Vector3 travec;
-        Boolean flag = true;
-        Boolean grap = false;
-        Boolean grapback = false;
-        float step ;
+        private Vector3 wristPosition;//手掌的位置
+        private Vector3 playerPosition;//可捡起的物体的位置
+        private Vector3 handTargetPosition;//手的目标位置
+        private Vector3 handStartGrabPosition;//手开始抓时的位置
+        private Transform GPS_transform;//在手心的一个小方块
+
+        int grabStep = 0;
+        float step;
+        int updateTimes;
+        float DetectionRadius = 0.55f;//手掌对物体的感应范围的半径
 
         [Header("Input Keys")]
         public string MoveForearmAxisX = "Mouse X";
@@ -49,6 +57,9 @@ namespace HandPhysicsExtenstions
 
         [Space]
         public KeyCode HoldRotation = KeyCode.Mouse1;
+        public KeyCode Grab = KeyCode.G;
+        public KeyCode StopGrab = KeyCode.F;
+        public KeyCode pickup = KeyCode.Space; 
 
         public void OnApplicationFocus(bool focus)
         {
@@ -58,27 +69,15 @@ namespace HandPhysicsExtenstions
 
         void Start()
         {
-            grap = false;
-            transform = hand.GetComponent<Transform>();
-            handPosition = transform.position;//手初始坐标
-            print("handPosition:  " + handPosition);
+            grabStep = 0;
+            updateTimes = 0;
 
-            palmPosition = new Vector3(handPosition.x, handPosition.y, (handPosition.z + 7.8f * 0.2f));
-            print("palmPosition:  " + palmPosition);
+            GPS_transform = GPS.GetComponent<Transform>();
 
-            endPosition = cube.GetComponent<Transform>().position;
-            print("yuanzhu:  "+endPosition);
+            handTargetPosition = GPS_transform.position;
+            handStartGrabPosition = Vector3.zero;
 
-            endPosition = new Vector3(endPosition.x, 0.5f, endPosition.z);
-            print("mubiaoweizhi:  "+endPosition);
-
-            travec = endPosition - palmPosition;
-            //Vector3 travec = new Vector3(-1.5f,0.0f,0.3f);
-            print("yidongxiangliang:  "+ travec);
             step = speed * Time.deltaTime;
-            
-
-            //Controller.MoveForearm(travec);
 
             if (drawCurve)
             {
@@ -100,7 +99,7 @@ namespace HandPhysicsExtenstions
             viewAccessor.WriteArray<char>(0, input.ToArray(), 0, input.Length);
 
             string cmd1 = string.Format("{0} {1}", filename, cmd);
-            run_cmd("python.exe", cmd1);//运行Python脚本
+            //run_cmd("python.exe", cmd1);//运行Python脚本
         }
 
         public void run_cmd(string program, string cmd)
@@ -117,67 +116,195 @@ namespace HandPhysicsExtenstions
 
         void OnApplicationQuit()
         {
-            process.Dispose();
+            //process.Dispose();
             ShareMemory.Dispose();
-            Process.GetProcessesByName("python")[0].Kill(); 
+            //Process.GetProcessesByName("python")[0].Kill(); 
         }
 
-        
+        //void OnDrawGizmos()
+        //{
+        //    Gizmos.color = Color.red;
+        //    Gizmos.DrawSphere(GPS.transform.position, 0.7f);
+        //}
+
+        void wait(int _updateTimes, int targetgrabStep)//等待Update()函数运行_updateTimes次后，将grabStep的值设为targetgrabStep
+        {
+            updateTimes ++;
+            if (updateTimes == _updateTimes)
+            {
+                updateTimes = 0;
+                grabStep = targetgrabStep;
+            }
+        }
 
         void Update()
         {
-            //print(Controller.Parts.Forearm.transform.position);
-            //读取字节------------------这里有一个大坑：Python写内存是按字节写入的，所以读内存的时候一定要按字节读出，否则不正确
-            String com = "";
-            for(int i = 0;i<5;i++)
-            {
-                command[i] = viewAccessor.ReadByte(i) - '0';
-                
-                com += command[i].ToString();
-            }
-            //print(com);
-
-            if (!ControlsEnabled )
+            if (!ControlsEnabled)
                 return;
 
-            if (command[1] == 1)
+            #region get the command
+            ////读取字节------------------这里有一个大坑：Python写内存是按字节写入的，所以读内存的时候一定要按字节读出，否则不正确
+            //String com = "";
+            //for(int i = 0;i<5;i++)
+            //{
+            //    command[i] = viewAccessor.ReadByte(i) - '0';
+            
+            //    com += command[i].ToString();
+            //}
+            ////print(com);
+            #endregion
+
+            #region grab objects
+            //0:没有命令 --》按空格抓取 --》1：翻转将手心向下 --》2：伸手（把手运动到目标位置） --》 3：弯曲手指抓 --》4：把手收回来（收到按下空格时的位置）--》5：把手翻过 --》6：等待放下物体--》7：把手翻到0度（手心向下）--》8：松开手
+            //print(Controller.Parts.Fingers[1].IsBending);
+
+            //获取以坐标GPS_transform.position（手掌的中心）为圆心，以DetectionRadius为半径的球的范围内的Layer为‘player’的物体
+            Collider[] cs = Physics.OverlapSphere(GPS_transform.position, DetectionRadius, 1 << LayerMask.NameToLayer("player"));
+            if (cs.Length != 0 && grabStep == 0)
             {
-                grap = true;
+                //print("cube1: " + cube1.GetComponent<Transform>().position + "cube2: " + cube2.GetComponent<Transform>().position + "capsule: " + capsule.GetComponent<Transform>().position);
+                handStartGrabPosition = Controller.Parts.Forearm.transform.position;
+                handTargetPosition = Vector3.zero;
+                if (pick_player)//把上一个被检测成红色的物体转换为蓝色
+                {
+                    pick_player.GetComponent<MeshRenderer>().material.color = Color.blue;
+                }
+                pick_player = cs[0].gameObject;
+                //print("pick_player: " + pick_player.name);
+
+                pick_player.GetComponent<Rigidbody>().useGravity = false;
+
+                pick_player_transform = pick_player.GetComponent<Transform>();
+                pick_player.GetComponent<MeshRenderer>().material.color = Color.red;
+
+                Vector3 tra_vec = pick_player_transform.position - GPS_transform.position;
+
+                //print(handTargetPosition);
+
+                handTargetPosition = new Vector3(
+                    Controller.Parts.Forearm.transform.position.x + tra_vec.x,
+                    Controller.Parts.Forearm.transform.position.y + tra_vec.y + pick_player_transform.position.y,
+                    Controller.Parts.Forearm.transform.position.z + tra_vec.z);
+
+                //print(
+                //    "pick_player_name: " + pick_player.name +
+                //    "  Forearm.transform: " + Controller.Parts.Forearm.transform.position +
+                //    "  GPS_transform: " + GPS_transform.position +
+                //    "  pick_player: " + pick_player_transform.position +
+                //    "  tra_vec: " + tra_vec +
+                //    "  handTargetPosition: " + handTargetPosition);
+
+            }
+            else if(grabStep == 0)//没有检测到物体，状态为0,（没有发出命令）
+            {
+                if(pick_player)
+                {
+                    pick_player.GetComponent<MeshRenderer>().material.color = Color.blue;
+                }
+                pick_player = null;
             }
 
-            if (grap)
+            if (Input.GetKey(pickup) && grabStep == 0 && pick_player)//按空格
             {
-
-                //Controller.MoveForearm(new Vector3(-0.5f, -0.1f, 0.55f));
-                Controller.Parts.Forearm.transform.position = Vector3.MoveTowards(Controller.Parts.Forearm.transform.position, new Vector3(-0.28f, 0.38f, -2.16f), step);
-                //hand.transform.localPosition = new Vector3(
-                //    Mathf.Lerp(hand.transform.localPosition.x, -0.2f, step),
-                //    Mathf.Lerp(hand.transform.localPosition.y, 0.4f, step),
-                //    Mathf.Lerp(hand.transform.localPosition.z, -2.1f, step));
-            }
-            if (Mathf.Approximately(Controller.Parts.Forearm.transform.position.y, 0.38f))
-            {
-
-                grap = false;
-                Controller.StartBendFingers();
-                grapback = true;
+                grabStep = 1;
             }
 
-            if (grapback)
+            if(grabStep == 1)
             {
-                Controller.Parts.Forearm.transform.position = Vector3.MoveTowards(Controller.Parts.Forearm.transform.position, new Vector3(-0.2f, 0.6f, -2.1f), step);
+                Controller.RotateForearmTo(0);//先将手转到0度，手心向下为0度
+                wait(15, 2);
+            }
+
+            if (grabStep == 2 )//伸手去抓
+            {
+                Controller.Parts.Forearm.transform.position = Vector3.MoveTowards(Controller.Parts.Forearm.transform.position, handTargetPosition, step);
+                if (Mathf.Approximately(Controller.Parts.Forearm.transform.position.y, handTargetPosition.y))
+                {
+                    grabStep = 3;
+                    Controller.StartBendFingers();
+                }
+            }
+
+            if(grabStep == 3)//抓
+            {
+                wait(30, 4);//等待一段时间后再转到状态3
+            }
+
+            if (grabStep == 4)//收回手
+            {
+                Controller.Parts.Forearm.transform.position = Vector3.MoveTowards(Controller.Parts.Forearm.transform.position, handStartGrabPosition, step);
+                if (Mathf.Approximately(Controller.Parts.Forearm.transform.position.y, handStartGrabPosition.y))
+                {
+                    grabStep = 5;
+                }
+            }
+
+            if (grabStep == 5)//翻手
+            {
                 Controller.RotateForearm(-160);
+                wait(30, 6);//等待一段时间后，转到状态6
             }
-            if (Mathf.Approximately(Controller.Parts.Forearm.transform.position.y, 0.6f))
+
+            if (Input.GetKey(pickup) && grabStep == 6)
             {
-                grapback = false;
+                grabStep = 7;//如果再次按下空格键，则转到状态7,
             }
+
+            if (grabStep == 7)
+            {
+                Controller.RotateForearmTo(0);//状态7进行翻手，翻到0度，掌心向下为0度
+                wait(30, 8);
+
+            }
+
+            if (grabStep == 8)
+            {
+                Controller.StopBendFingers();//翻手之后，松开物体
+                wait(30, 0);
+            }
+
+            if (Input.GetKey(Grab))//按‘G’抓
+            {
+                Controller.StartBendFingers();
+            }
+
+            if (Input.GetKey(StopGrab))//按‘F’松开
+            {
+                grabStep = 0;
+                Controller.StopBendFingers();
+            }
+            #endregion
+
+
+            #region gestures 
+            if (Input.GetKey(KeyCode.Alpha1))
+            {
+                Controller.StartBendFinger(FingerType.Middle);
+                Controller.StartBendFinger(FingerType.Ring);
+                Controller.StartBendFinger(FingerType.Pinky);
+            }
+
+            if (Input.GetKey(KeyCode.Alpha2))
+            {
+                Controller.StartBendFinger(FingerType.Ring);
+                Controller.StartBendFinger(FingerType.Pinky);
+            }
+
+            if (Input.GetKey(KeyCode.Alpha3))
+            {
+                Controller.StartBendFinger(FingerType.Index);
+            }
+
+            #endregion
+
+
+
 
             //if(Controller.Parts.Forearm.Joint.targetRotation == 90)
 
-            //if(grap&&loop>200)
+            //if(Grab&&loop>200)
             //{
-            //    grap = false;
+            //    Grab = false;
             //    loop = 0;
             //    Controller.StartBendFingers();
             //if (command[0] == 1)
@@ -213,8 +340,10 @@ namespace HandPhysicsExtenstions
 
 
             if (!Input.GetKey(HoldRotation))
+            {
                 Controller.MoveForearm(new Vector3(Input.GetAxis(MoveForearmAxisX), Input.GetAxis(MoveForearmAxisY),
-                    Input.GetAxis(MoveForearmAxisZ)));
+                  Input.GetAxis(MoveForearmAxisZ)));
+            }
             else
             {
                 Controller.RotateWrist(Input.GetAxis(RotateWristAxis));

@@ -102,33 +102,6 @@ namespace HandPhysicsExtenstions
             ControlPart();
         }
 
-
-        //void OnTriggerEnter(Collider col)
-        //{
-        //    if (col.GetComponent<FingerPart>() || col.GetComponent<HandPart>())
-        //        return;
-
-
-        //    Rigidbody colRigidbody = col.GetComponent<Rigidbody>();
-        //    if (!colRigidbody)
-        //        return;
-
-        //    if (!colRigidbody.isKinematic)
-        //    {
-        //        //col.gameObject.transform.parent = this.transform;//设置父物体
-        //        // colRigidbody.isKinematic = true;
-
-        //    }
-        //}
-
-        //void OnTriggerExit(Collider col)
-        //{
-        //    Rigidbody colRigidbody = col.GetComponent<Rigidbody>();
-        //    if (!colRigidbody)
-        //        return;
-        //}
-
-
         void ControlPart()
         {
             if (IsTouchingAnyObject)

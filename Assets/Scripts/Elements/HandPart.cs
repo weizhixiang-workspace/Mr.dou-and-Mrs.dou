@@ -19,7 +19,7 @@ namespace HandPhysicsExtenstions
         //    Debug.Log("OnTriggerExit");
         //    pickUp = null;
         //}
- 
+
         #region Component references
         /// <summary>
         /// Returns collider component attached to this hand part

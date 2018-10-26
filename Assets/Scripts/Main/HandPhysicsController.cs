@@ -16,7 +16,7 @@ public class HandPhysicsController : MonoBehaviour
     /// <summary>
     /// Called when one of any finger part triggers collides with any other <see cref="Rigidbody"/>
     /// </summary>
-    public ObjectTouched OnObjectTouched = () => { print("***********************collides***************************"); };
+    public ObjectTouched OnObjectTouched = () => {  };
     /// <summary>
     /// Called when <see cref="Rigidbody"/> has been attached to hand
     /// </summary>
@@ -335,6 +335,13 @@ public class HandPhysicsController : MonoBehaviour
         IsForearmMoving = true;
     }
 
+    public void MoveForearmTo(Vector3 target)
+    {
+       
+        _lastForearmPosition = target;
+        IsForearmMoving = false;
+    }
+
     /// <summary>
     /// Rotates forearm around base joint axis by <see cref="value"/> between min and max joint limits based on <see cref="HandPhysicsExtenstions.ForearmConfig.RotationSpeed"/> and <see cref="HandPhysicsExtenstions.ForearmConfig.RotationHardness"/>
     /// </summary>
@@ -346,6 +353,14 @@ public class HandPhysicsController : MonoBehaviour
             _curForearmTargetRotation,
             Parts.Forearm.Joint.lowAngularXLimit.limit, 
             Parts.Forearm.Joint.highAngularXLimit.limit);
+
+        IsForearmRotating = true;
+    }
+
+    public void RotateForearmTo(float value)
+    {
+        float value1 = value - _curForearmTargetRotation;
+        _curForearmTargetRotation += Mathf.Clamp(value1, -1, 1) * Forearm.RotationSpeed;
 
         IsForearmRotating = true;
     }
