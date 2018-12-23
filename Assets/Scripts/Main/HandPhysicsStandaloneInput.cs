@@ -13,7 +13,6 @@ namespace HandPhysicsExtenstions
     {
         public HandPhysicsController Controller;
         public GameObject GPS;
-        public GameObject hand;
         public GameObject cube1;
         public GameObject cube2;
         public GameObject capsule;
@@ -26,8 +25,9 @@ namespace HandPhysicsExtenstions
         public bool LockCursor = true;
         public bool ControlsEnabled = true;
         public bool drawCurve = false;
+        public bool runWithPython = true;
 
-        private string filename = "D:\\Projects\\UNITY_PROJECT\\Mr.dou-and-Mrs.dou\\Assets\\Scripts\\Main\\modbus.py";
+        private string filename = "D:\\Projects\\UNITY_PROJECT\\EE5003_Update_20181101\\MscProj_20181025\\Assets\\Scripts\\Main\\SerialCommunication.py";
         private string cmd = "\"Form C#:\"";
         private Process process;
 
@@ -45,6 +45,15 @@ namespace HandPhysicsExtenstions
         float step;
         int updateTimes;
         float DetectionRadius = 0.55f;//手掌对物体的感应范围的半径
+
+        struct TargetRotation
+        {
+            public float joint1;
+            public float joint2;
+            public float joint3;
+        }
+
+        private TargetRotation[] fingersTargetRotationBackUp = new TargetRotation[5];
 
         [Header("Input Keys")]
         public string MoveForearmAxisX = "Mouse X";
@@ -69,6 +78,13 @@ namespace HandPhysicsExtenstions
 
         void Start()
         {
+            for(int i = 0;i<5;i++)
+            {
+                fingersTargetRotationBackUp[i].joint1 = Controller.Parts.Fingers[i].GetComponent<FingerPart>().TargetRotation.x;
+                fingersTargetRotationBackUp[i].joint2 = Controller.Parts.Fingers[i].GetComponent<Finger>().Parts[1].GetComponent<FingerPart>().TargetRotation.x;
+                fingersTargetRotationBackUp[i].joint3 = Controller.Parts.Fingers[i].GetComponent<Finger>().Parts[2].GetComponent<FingerPart>().TargetRotation.x;
+            }
+
             grabStep = 0;
             updateTimes = 0;
 
@@ -79,11 +95,6 @@ namespace HandPhysicsExtenstions
 
             step = speed * Time.deltaTime;
 
-            if (drawCurve)
-            {
-                filename.Replace("modbus.py", "modbus_curve.py");
-            }
-
             long capacity = 1024;
             //创建或者打开共享内存  
             ShareMemory = MemoryMappedFile.CreateOrOpen("ShareMemory", capacity, MemoryMappedFileAccess.ReadWrite);
@@ -91,15 +102,11 @@ namespace HandPhysicsExtenstions
             //通过MemoryMappedFile的CreateViewAccssor方法获得共享内存的访问器  
              viewAccessor = ShareMemory.CreateViewAccessor(0, capacity);
 
-            string input = "00000000";
-            //向共享内存开始位置写入字符串的长度  
-            //viewAccessor.Write(0, input.Length);
-
-            //向共享内存4位置写入字符  
-            viewAccessor.WriteArray<char>(0, input.ToArray(), 0, input.Length);
-
             string cmd1 = string.Format("{0} {1}", filename, cmd);
-            //run_cmd("python.exe", cmd1);//运行Python脚本
+            if(runWithPython)
+            {
+                run_cmd("python.exe", cmd1);//运行Python脚本
+            }
         }
 
         public void run_cmd(string program, string cmd)
@@ -116,9 +123,13 @@ namespace HandPhysicsExtenstions
 
         void OnApplicationQuit()
         {
-            //process.Dispose();
             ShareMemory.Dispose();
-            //Process.GetProcessesByName("python")[0].Kill(); 
+            if (runWithPython)
+            {
+                process.Dispose();
+                Process.GetProcessesByName("python")[0].Kill();
+            }
+            
         }
 
         //void OnDrawGizmos()
@@ -137,21 +148,85 @@ namespace HandPhysicsExtenstions
             }
         }
 
+        void StartBendFinger(int i, float joint1TargetRotation, float joint2TargetRotation, float joint3TargetRotation)//设定目标角度的手指弯曲
+        {
+            Controller.Parts.Fingers[i].GetComponent<FingerPart>().TargetRotation.x = joint1TargetRotation;
+
+            Controller.Parts.Fingers[i].GetComponent<Finger>().Parts[1].GetComponent<FingerPart>().TargetRotation.x = joint2TargetRotation;
+            Controller.Parts.Fingers[i].GetComponent<Finger>().Parts[2].GetComponent<FingerPart>().TargetRotation.x = joint3TargetRotation;
+
+            switch (i)
+            {
+                case 0:
+                    Controller.StartBendFinger(FingerType.Thumb);
+                    break;
+                case 1:
+                    Controller.StartBendFinger(FingerType.Index);
+                    break;
+                case 2:
+                    Controller.StartBendFinger(FingerType.Middle);
+                    break;
+                case 3:
+                    Controller.StartBendFinger(FingerType.Ring);
+                    break;
+                case 4:
+                    Controller.StartBendFinger(FingerType.Pinky);
+                    break;
+            }
+
+        }
+
+        void StopBendFinger(int i)//恢复初始目标角度，并伸直手指
+        {
+            //resetTargetRotation();
+            switch (i)
+            {
+                case 0:
+                    Controller.StopBendFinger(FingerType.Thumb);
+                    break;
+                case 1:
+                    Controller.StopBendFinger(FingerType.Index);
+                    break;
+                case 2:
+                    Controller.StopBendFinger(FingerType.Middle);
+                    break;
+                case 3:
+                    Controller.StopBendFinger(FingerType.Ring);
+                    break;
+                case 4:
+                    Controller.StopBendFinger(FingerType.Pinky);
+                    break;
+            }
+
+        }
+
+        void resetTargetRotation()//恢复所有手指弯曲的目标角度
+        {
+            for(int i = 0; i<5;i++)
+            {
+                Controller.Parts.Fingers[i].GetComponent<FingerPart>().TargetRotation.x = fingersTargetRotationBackUp[i].joint1;
+                Controller.Parts.Fingers[i].GetComponent<Finger>().Parts[1].GetComponent<FingerPart>().TargetRotation.x = fingersTargetRotationBackUp[i].joint2;
+                Controller.Parts.Fingers[i].GetComponent<Finger>().Parts[2].GetComponent<FingerPart>().TargetRotation.x = fingersTargetRotationBackUp[i].joint3;
+            }
+        }
+
         void Update()
         {
             if (!ControlsEnabled)
                 return;
 
             #region get the command
-            ////读取字节------------------这里有一个大坑：Python写内存是按字节写入的，所以读内存的时候一定要按字节读出，否则不正确
-            //String com = "";
-            //for(int i = 0;i<5;i++)
-            //{
-            //    command[i] = viewAccessor.ReadByte(i) - '0';
-            
-            //    com += command[i].ToString();
-            //}
-            ////print(com);
+            //读取字节------------------这里有一个大坑：Python写内存是按字节写入的，所以读内存的时候一定要按字节读出，否则不正确
+            String com = "";
+            for (int i = 0; i <= 5; i++)
+            {
+                byte ReadByte = viewAccessor.ReadByte(i);
+                command[i] = ReadByte - '0';
+                //print(ReadByte);
+                //print(command[i]);
+                com += command[i].ToString();
+            }
+            print(com);
             #endregion
 
             #region grab objects
@@ -206,6 +281,7 @@ namespace HandPhysicsExtenstions
 
             if (Input.GetKey(pickup) && grabStep == 0 && pick_player)//按空格
             {
+                resetTargetRotation();
                 grabStep = 1;
             }
 
@@ -265,6 +341,8 @@ namespace HandPhysicsExtenstions
 
             if (Input.GetKey(Grab))//按‘G’抓
             {
+                grabStep = 99;
+                resetTargetRotation();
                 Controller.StartBendFingers();
             }
 
@@ -279,6 +357,8 @@ namespace HandPhysicsExtenstions
             #region gestures 
             if (Input.GetKey(KeyCode.Alpha1))
             {
+                grabStep = 99; 
+                resetTargetRotation();
                 Controller.StartBendFinger(FingerType.Middle);
                 Controller.StartBendFinger(FingerType.Ring);
                 Controller.StartBendFinger(FingerType.Pinky);
@@ -286,57 +366,92 @@ namespace HandPhysicsExtenstions
 
             if (Input.GetKey(KeyCode.Alpha2))
             {
+                grabStep = 99;
+                resetTargetRotation();
                 Controller.StartBendFinger(FingerType.Ring);
                 Controller.StartBendFinger(FingerType.Pinky);
             }
 
             if (Input.GetKey(KeyCode.Alpha3))
             {
+                grabStep = 99;
+                resetTargetRotation();
                 Controller.StartBendFinger(FingerType.Index);
             }
 
             #endregion
 
 
+            if(Input.GetKey(KeyCode.Q))
+            {
+                grabStep = 99;
+                StartBendFinger(1, 0.0f, 0.3f, 0.5f);
+            }
 
+            if (Input.GetKey(KeyCode.E))
+            {
+                grabStep = 99;
+                StartBendFinger(1, 0.0f, 0.8f, 0.5f);
+            }
 
-            //if(Controller.Parts.Forearm.Joint.targetRotation == 90)
-
-            //if(Grab&&loop>200)
+            //if (Input.GetKey(KeyCode.Y))
             //{
-            //    Grab = false;
-            //    loop = 0;
-            //    Controller.StartBendFingers();
-            //if (command[0] == 1)
-            //    Controller.StartBendFinger(FingerType.Thumb);
-            //else if (command[0] == 2)
-            //    Controller.StopBendFinger(FingerType.Thumb);
-
-            //if (command[1] == 1)
-            //    Controller.StartBendFinger(FingerType.Index);
-            //else if (command[1] == 2)
-            //    Controller.StopBendFinger(FingerType.Index);
-
-            //if (command[2] == 1)
-            //    Controller.StartBendFinger(FingerType.Middle);
-            //else if (command[2] == 2)
-            //    Controller.StopBendFinger(FingerType.Middle);
-
-            //if (command[3] == 1)
-            //    Controller.StartBendFinger(FingerType.Ring);
-            //else if (command[3] == 2)
-            //    Controller.StopBendFinger(FingerType.Ring);
-
-            //if (command[4] == 1)
-            //    Controller.StartBendFinger(FingerType.Pinky);
-            //else if (command[4] == 2)
-            //    Controller.StopBendFinger(FingerType.Pinky);
+                
+            //    Controller.RotateWristTo(45);
             //}
-            //else
-            //{
 
-            //    loop++;
-            //}
+            #region controll by command
+            if (grabStep == 0)
+            {
+
+                if (command[0] == 1)
+                {
+                    StartBendFinger(0, 0.0f, 0.0f, 0.3f);//i指的是第i个手指，后边三个浮点数参数为每个关节的弯曲程度，1是最大弯曲
+                }
+                else if (command[0] == 2)
+                {
+                    StartBendFinger(0, 0.0f, 0.0f, 0.9f);
+                }
+                else if (command[0] == 0)
+                {
+                    StopBendFinger(0);
+                }
+
+                for (int i = 1; i < 5; i++)
+                {
+                    //command[i]为1,2,3分别为三种弯曲程度
+                    if (command[i] == 1)
+                    {
+                        StartBendFinger(i, 0.0f, 0.3f, 0.5f);//i指的是第i个手指，后边三个浮点数参数为每个关节的弯曲程度，1是最大弯曲
+                    }
+                    else if (command[i] == 2)
+                    {
+                        StartBendFinger(i, 0.0f, 0.6f, 0.5f);
+                    }
+                    else if (command[i] == 3)
+                    {
+                        StartBendFinger(i, 0.0f, 0.9f, 0.5f);
+                    }
+                    else if (command[i] == 0)
+                    {
+                        StopBendFinger(i);
+                    }
+                }
+
+                if(command[5] == 1)//用command[5]控制手腕弯曲的角度
+                {
+                    Controller.RotateWristTo(25);//控制手腕弯曲的角度：25度
+                }
+                else if (command[5] == 2)
+                {
+                    Controller.RotateWristTo(45);
+                }
+                else if(command[5] == 0)
+                {
+                    Controller.RotateWristTo(0);
+                }
+            }
+            #endregion
 
 
             if (!Input.GetKey(HoldRotation))

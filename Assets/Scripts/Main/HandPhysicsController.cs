@@ -372,14 +372,18 @@ public class HandPhysicsController : MonoBehaviour
     public void RotateWrist(float value)
     {
         _curWristTargetRotation += Mathf.Clamp(value, -1, 1) * Wrist.RotationSpeed;
-        _curWristTargetRotation = Mathf.Clamp(
-            _curWristTargetRotation,
-            Parts.Wrist.Joint.lowAngularXLimit.limit,
-            Parts.Wrist.Joint.highAngularXLimit.limit);
-        
+       
         IsWristRotating = true;
     }
 
+    public void RotateWristTo(float value)
+    {
+        float value1 = value - _curWristTargetRotation;
+        _curWristTargetRotation += Mathf.Clamp(value1, -1, 1) * Wrist.RotationSpeed;
+
+        IsWristRotating = true;
+    }
+   
     /// <summary>
     /// Starts bending all fingers based on <see cref="HandPhysicsExtenstions.FingersConfig.BendSpeed"/>
     /// </summary>
